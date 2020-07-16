@@ -1,0 +1,4 @@
+classes=1
+train=helipad.txt
+valid=helipad.txt
+names=obj.names
