@@ -1,4 +1,4 @@
 classes=1
-train=helipad.txt
-valid=helipad.txt
-names=obj.names
+train=samples/helipad.txt
+valid=samples/helipad.txt
+names=samples/obj.names
