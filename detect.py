@@ -1,24 +1,42 @@
 import argparse
 
+import numpy as np
+from scipy.spatial.transform import Rotation
+from scipy.optimize import least_squares
+
 from models import *  # set ONNX_EXPORT in models.py
 from utils.datasets import *
 from utils.utils import *
+import cv2 as cv2
 
+def bprj(x, Ric, xb1, yb1, xb2, yb2, foc, R):
+    a1, b1, c1 = Ric[0,0], Ric[0,1], Ric[0,2]
+    a2, b2, c2 = Ric[1,0], Ric[1,1], Ric[1,2]
+    a3, b3, c3 = Ric[2,0], Ric[2,1], Ric[2,2]
+    return np.array([
+        (a1 - a3*xb1/foc)*x[0] + (b1 - b3*xb1/foc)*x[1] + (c1 -c3*xb1/foc)*x[4],
+        (a2 - a3*yb1/foc)*x[0] + (b2 - b3*yb1/foc)*x[1] + (c2 -c3*yb1/foc)*x[4],
+        (a1 - a3*xb2/foc)*x[2] + (b1 - b3*xb2/foc)*x[2] + (c1 -c3*xb2/foc)*x[4],
+        (a2 - a3*yb2/foc)*x[3] + (b2 - b3*yb2/foc)*x[3] + (c2 -c3*yb2/foc)*x[4],
+        np.abs(x[2]-x[0])-R,
+        np.abs(x[3]-x[1])-R
+    ])
 
 def detect(save_img=False):
     imgsz = (320, 192) if ONNX_EXPORT else opt.img_size  # (320, 192) or (416, 256) or (608, 352) for (height, width)
     out, source, weights, half, view_img, save_txt = opt.output, opt.source, opt.weights, opt.half, opt.view_img, opt.save_txt
     webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
-
+    eulang_file = np.genfromtxt('test/images/eulang.txt', delimiter=',')
+    eulang_cursor = 0
+    foc = 3.04e-3
+    pose_sol = np.array([0.1,0.1,0.1,0.1,-0.5])
     # Initialize
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     if os.path.exists(out):
         shutil.rmtree(out)  # delete output folder
     os.makedirs(out)  # make new output folder
-
     # Initialize model
     model = Darknet(opt.cfg, imgsz)
-
     # Load weights
     attempt_download(weights)
     if weights.endswith('.pt'):  # pytorch format
@@ -131,10 +149,18 @@ def detect(save_img=False):
                         label = '%s %.2f' % (names[int(cls)], conf)
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)])
                         # Further processing of detection results
+                        # Get the timestamp
+                        img_timestamp = float(path.split('_',1)[1][:-4])
+                        while (eulang_file[eulang_cursor, 0] < img_timestamp):
+                            eulang_cursor = eulang_cursor + 1
                         # Get the Euler angles of this image
-                        
+                        ypr = eulang_file[eulang_cursor, 1:4]
+                        Ric = Rotation.from_euler('ZYX', ypr, degrees=False).as_dcm().T
                         # Perform optimization
-                        # Plot the localization result
+                        res_1 = least_squares(bprj, pose_sol, args=(Ric, xyxy[0], xyxy[1], xyxy[2], xyxy[3], foc, 0.181))
+                        pose_sol = res_1
+                        # Write this information on the image
+                        cv2.putText(im0, label, (5, 5), 0, 1, [225, 255, 255], thickness=3, lineType=cv2.LINE_AA)
 
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
@@ -174,7 +200,7 @@ if __name__ == '__main__':
     parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
     parser.add_argument('--names', type=str, default='data/coco.names', help='*.names path')
     parser.add_argument('--weights', type=str, default='weights/yolov3-spp-ultralytics.pt', help='weights path')
-    parser.add_argument('--source', type=str, default='data/samples', help='source')  # input file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='test/images', help='source')  # input file/folder, 0 for webcam
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=512, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
