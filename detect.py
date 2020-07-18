@@ -9,7 +9,7 @@ from utils.datasets import *
 from utils.utils import *
 import cv2 as cv2
 
-def bprj(x, Ric, xb1, yb1, xb2, yb2, foc, R):
+def bprj(x, Ric, xb1, yb1, xb2, yb2, mfoc, R):
     a1, b1, c1 = Ric[0,0], Ric[0,1], Ric[0,2]
     a2, b2, c2 = Ric[1,0], Ric[1,1], Ric[1,2]
     a3, b3, c3 = Ric[2,0], Ric[2,1], Ric[2,2]
