@@ -14,12 +14,12 @@ def bprj(x, Ric, xb1, yb1, xb2, yb2, foc, R):
     a2, b2, c2 = Ric[1,0], Ric[1,1], Ric[1,2]
     a3, b3, c3 = Ric[2,0], Ric[2,1], Ric[2,2]
     return np.array([
-        (a1 - a3*xb1/foc)*x[0] + (b1 - b3*xb1/foc)*x[1] + (c1 -c3*xb1/foc)*x[4],
-        (a2 - a3*yb1/foc)*x[0] + (b2 - b3*yb1/foc)*x[1] + (c2 -c3*yb1/foc)*x[4],
-        (a1 - a3*xb2/foc)*x[2] + (b1 - b3*xb2/foc)*x[2] + (c1 -c3*xb2/foc)*x[4],
-        (a2 - a3*yb2/foc)*x[3] + (b2 - b3*yb2/foc)*x[3] + (c2 -c3*yb2/foc)*x[4],
-        np.abs(x[2]-x[0])-R,
-        np.abs(x[3]-x[1])-R
+        ((a1 - a3*xb1/mfoc)*x[0] + (b1 - b3*xb1/mfoc)*x[1] + (c1 -c3*xb1/mfoc)*x[4]),
+        ((a2 - a3*yb1/mfoc)*x[0] + (b2 - b3*yb1/mfoc)*x[1] + (c2 -c3*yb1/mfoc)*x[4]),
+        ((a1 - a3*xb2/mfoc)*x[2] + (b1 - b3*xb2/mfoc)*x[3] + (c1 -c3*xb2/mfoc)*x[4]),
+        ((a2 - a3*yb2/mfoc)*x[2] + (b2 - b3*yb2/mfoc)*x[3] + (c2 -c3*yb2/mfoc)*x[4]),
+        10*((x[2]-x[0])**2 + (x[3]-x[1])**2 - R**2),
+        10*((x[2]-x[0])**2 / (x[3]-x[1])**2 - 1)
     ])
 
 def detect(save_img=False):
@@ -29,7 +29,7 @@ def detect(save_img=False):
     eulang_file = np.genfromtxt('test/images/eulang.txt', delimiter=',')
     eulang_cursor = 0
     foc = 3.04e-3
-    pose_sol = np.array([0.1,0.1,0.1,0.1,-0.5])
+    pose_sol = np.array([0.1,0.1,0.1,0.1,-1.5])
     # Initialize
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     if os.path.exists(out):
@@ -155,12 +155,15 @@ def detect(save_img=False):
                             eulang_cursor = eulang_cursor + 1
                         # Get the Euler angles of this image
                         ypr = eulang_file[eulang_cursor, 1:4]
-                        Ric = Rotation.from_euler('ZYX', ypr, degrees=False).as_dcm().T
+                        Rib = Rotation.from_euler('ZYX', ypr, degrees=False).as_dcm().T
+                        Rbc = Rotation.from_euler('ZYX', np.array([90,0,0]), degrees=False).as_dcm()
+                        Ric = Rbc @ Rib
                         # Perform optimization
-                        res_1 = least_squares(bprj, pose_sol, args=(Ric, xyxy[0], xyxy[1], xyxy[2], xyxy[3], foc, 0.181))
-                        pose_sol = res_1
+                        res_1 = least_squares(bprj, pose_sol, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.181))
+                        pose_sol = res_1.x
                         # Write this information on the image
-                        cv2.putText(im0, label, (5, 5), 0, 1, [225, 255, 255], thickness=3, lineType=cv2.LINE_AA)
+                        cv2.putText(im0, str(res_1.x), (5, 30), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        cv2.putText(im0, str(res_1.cost), (5, 40), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
 
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
