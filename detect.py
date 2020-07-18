@@ -13,6 +13,11 @@ def bprj(x, Ric, xb1, yb1, xb2, yb2, mfoc, R):
     a1, b1, c1 = Ric[0,0], Ric[0,1], Ric[0,2]
     a2, b2, c2 = Ric[1,0], Ric[1,1], Ric[1,2]
     a3, b3, c3 = Ric[2,0], Ric[2,1], Ric[2,2]
+    s = 0.00000575
+    xb1 = (xb1-320) * s
+    yb1 = (yb1-240) * s
+    xb2 = (xb2-320) * s
+    yb2 = (yb2-240) * s
     return np.array([
         ((a1 - a3*xb1/mfoc)*x[0] + (b1 - b3*xb1/mfoc)*x[1] + (c1 -c3*xb1/mfoc)*x[4]),
         ((a2 - a3*yb1/mfoc)*x[0] + (b2 - b3*yb1/mfoc)*x[1] + (c2 -c3*yb1/mfoc)*x[4]),
