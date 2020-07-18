@@ -24,7 +24,7 @@ def bprj(x, Ric, xb1, yb1, xb2, yb2, mfoc, R):
         ((a1 - a3*xb2/mfoc)*x[2] + (b1 - b3*xb2/mfoc)*x[3] + (c1 -c3*xb2/mfoc)*x[4]),
         ((a2 - a3*yb2/mfoc)*x[2] + (b2 - b3*yb2/mfoc)*x[3] + (c2 -c3*yb2/mfoc)*x[4]),
         10*((x[2]-x[0])**2 + (x[3]-x[1])**2 - R**2),
-        10*((x[2]-x[0])**2 / (x[3]-x[1])**2 - 1)
+        # 10*((x[2]-x[0])**2 / (x[3]-x[1])**2 - 1)
     ])
 
 def detect(save_img=False):
@@ -34,7 +34,7 @@ def detect(save_img=False):
     eulang_file = np.genfromtxt('test/images/eulang.txt', delimiter=',')
     eulang_cursor = 0
     foc = 3.04e-3
-    Rbc = Rotation.from_euler('ZYX', np.array([90,0,0]), degrees=False).as_dcm()
+    Rbc = Rotation.from_euler('ZYX', np.array([90,0,0]), degrees=True).as_dcm()
     pose_sol_a = np.array([0.1,0.1,0.4,0.4,2.5])
     pose_sol_b = np.array([-0.1,0.1,-0.4,0.4,-2.5])
     # Initialize
@@ -161,7 +161,7 @@ def detect(save_img=False):
                         while (eulang_file[eulang_cursor, 0] < img_timestamp):
                             eulang_cursor = eulang_cursor + 1
                         # Get the Euler angles of this image
-                        ypr = eulang_file[eulang_cursor, 1:4]
+                        ypr = eulang_file[eulang_cursor, 1:4] # in rads
                         Rib = Rotation.from_euler('ZYX', ypr, degrees=False).as_dcm().T
                         Ric = Rbc @ Rib
                         # Perform optimization
