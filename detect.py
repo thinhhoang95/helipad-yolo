@@ -34,7 +34,8 @@ def detect(save_img=False):
     eulang_file = np.genfromtxt('test/images/eulang.txt', delimiter=',')
     eulang_cursor = 0
     foc = 3.04e-3
-    pose_sol = np.array([0.1,0.1,0.1,0.1,-1.5])
+    Rbc = Rotation.from_euler('ZYX', np.array([90,0,0]), degrees=False).as_dcm()
+    pose_sol = np.array([0.1,0.1,0.4,0.4,2.5])
     # Initialize
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     if os.path.exists(out):
@@ -161,7 +162,6 @@ def detect(save_img=False):
                         # Get the Euler angles of this image
                         ypr = eulang_file[eulang_cursor, 1:4]
                         Rib = Rotation.from_euler('ZYX', ypr, degrees=False).as_dcm().T
-                        Rbc = Rotation.from_euler('ZYX', np.array([90,0,0]), degrees=False).as_dcm()
                         Ric = Rbc @ Rib
                         # Perform optimization
                         res_1 = least_squares(bprj, pose_sol, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.181))
