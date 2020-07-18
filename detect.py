@@ -35,7 +35,8 @@ def detect(save_img=False):
     eulang_cursor = 0
     foc = 3.04e-3
     Rbc = Rotation.from_euler('ZYX', np.array([90,0,0]), degrees=False).as_dcm()
-    pose_sol = np.array([0.1,0.1,0.4,0.4,2.5])
+    pose_sol_a = np.array([0.1,0.1,0.4,0.4,2.5])
+    pose_sol_b = np.array([-0.1,0.1,-0.4,0.4,-2.5])
     # Initialize
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     if os.path.exists(out):
@@ -164,11 +165,16 @@ def detect(save_img=False):
                         Rib = Rotation.from_euler('ZYX', ypr, degrees=False).as_dcm().T
                         Ric = Rbc @ Rib
                         # Perform optimization
-                        res_1 = least_squares(bprj, pose_sol, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.181))
-                        pose_sol = res_1.x
+                        res_1 = least_squares(bprj, pose_sol_a, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.181))
+                        res_2 = least_squares(bprj, pose_sol_b, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.181))
+                        # pose_sol = res_1.x
                         # Write this information on the image
-                        cv2.putText(im0, str(res_1.x), (5, 30), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
-                        cv2.putText(im0, str(res_1.cost), (5, 40), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        cv2.putText(im0, 'Sol 1: ' + str(res_1.x), (5, 30), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        cv2.putText(im0, 'Sol 2: ' + str(res_2.x), (5, 40), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        cv2.putText(im0, 'YPR: ' + str(ypr/np.pi*180), (5, 50), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        cv2.putText(im0, 'Box: %d %d %d %d' % (float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3])), (5, 60), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        print('\n >> ', res_1.x)
+                        print('\n >> ', res_2.x)
 
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
