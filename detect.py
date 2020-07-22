@@ -24,19 +24,23 @@ def bprj(x, Ric, xb1, yb1, xb2, yb2, mfoc, R):
         ((a1 - a3*xb2/mfoc)*x[2] + (b1 - b3*xb2/mfoc)*x[3] + (c1 -c3*xb2/mfoc)*x[4]),
         ((a2 - a3*yb2/mfoc)*x[2] + (b2 - b3*yb2/mfoc)*x[3] + (c2 -c3*yb2/mfoc)*x[4]),
         10*((x[2]-x[0])**2 + (x[3]-x[1])**2 - R**2),
-        # 10*((x[2]-x[0])**2 / (x[3]-x[1])**2 - 1)
+        10*((x[2]-x[0])**2 / (x[3]-x[1])**2 - 1)
     ])
 
 def detect(save_img=False):
     imgsz = (320, 192) if ONNX_EXPORT else opt.img_size  # (320, 192) or (416, 256) or (608, 352) for (height, width)
     out, source, weights, half, view_img, save_txt = opt.output, opt.source, opt.weights, opt.half, opt.view_img, opt.save_txt
     webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
+    # Declaration of common variables -------------------------
     eulang_file = np.genfromtxt('test/images/eulang.txt', delimiter=',')
     eulang_cursor = 0
     foc = 3.04e-3
-    Rbc = Rotation.from_euler('ZYX', np.array([90,0,0]), degrees=True).as_dcm()
-    pose_sol_a = np.array([0.1,0.1,0.4,0.4,2.5])
-    pose_sol_b = np.array([-0.1,0.1,-0.4,0.4,-2.5])
+    Rbc = Rotation.from_euler('ZYX', np.array([90,0,0]), degrees=False).as_dcm()
+    pose_sol_a = np.array([0.1,0.1,0.4,0.4,2.5]) # initial solution for optimization
+    pose_sol_b = np.array([-0.1,0.1,-0.4,0.4,-2.5]) # initial solution for optimization
+    Ritip = np.array([[1,0,0],[0,-1,0],[0,0,-1]]) # rotates around X axis for 180 degrees
+    Ripi = Rotation.from_euler('ZYX',np.array([-69,0,0]), degrees=True).as_dcm()
+    # ----------------------------------------------------------
     # Initialize
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
     if os.path.exists(out):
@@ -161,7 +165,7 @@ def detect(save_img=False):
                         while (eulang_file[eulang_cursor, 0] < img_timestamp):
                             eulang_cursor = eulang_cursor + 1
                         # Get the Euler angles of this image
-                        ypr = eulang_file[eulang_cursor, 1:4] # in rads
+                        ypr = eulang_file[eulang_cursor, 1:4]
                         Rib = Rotation.from_euler('ZYX', ypr, degrees=False).as_dcm().T
                         Ric = Rbc @ Rib
                         # Perform optimization
@@ -173,6 +177,33 @@ def detect(save_img=False):
                         cv2.putText(im0, 'Sol 2: ' + str(res_2.x), (5, 40), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
                         cv2.putText(im0, 'YPR: ' + str(ypr/np.pi*180), (5, 50), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
                         cv2.putText(im0, 'Box: %d %d %d %d' % (float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3])), (5, 60), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        # >>> Infer data from ARUCO tag >>>
+                        
+                        #Load the dictionary that was used to generate the markers.
+                        dictionary = cv.aruco.Dictionary_get(cv.aruco.DICT_6X6_250)
+
+                        # Initialize the detector parameters using default values
+                        parameters =  cv.aruco.DetectorParameters_create()
+
+                        # Load the camera matrix and distortion from file
+                        cam_mat = np.load('cam_mat.pca.npy')
+                        dist = np.load('dist.pca.npy')
+
+                        # Detect the markers in the image
+                        markerCorners, markerIds, rejectedCandidates = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
+                        rvecs, tvecs, *other = cv2.aruco.estimatePoseSingleMarkers(markerCorners, 0.18, cam_mat, dist)
+                        if (len(rvecs)==0 or len(rvecs)>1):
+                            print('Invalid number of ARUCO tags detected in the image')
+                        else:
+                            for rvec, tvec in zip(rvecs, tvecs):
+                                Ritc = Rotation.from_rotvec(rvec).as_dcm()
+                                Riti = Ripi @ Ritip
+                                heli_pos = Riti @ (np.array([0.245,0,0]).T - Ritc @ tvec.T)
+                                print('ARUCO detected at ', heli_pos)
+                                cv2.putText(im0, 'ARUCO: ' + str(heli_pos), (5, 60), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+
+                        # <<< Infer data from ARUCO tag <<<
+
                         print('\n >> ', res_1.x)
                         print('\n >> ', res_2.x)
 
