@@ -180,10 +180,10 @@ def detect(save_img=False):
                         # >>> Infer data from ARUCO tag >>>
                         
                         #Load the dictionary that was used to generate the markers.
-                        dictionary = cv.aruco.Dictionary_get(cv.aruco.DICT_6X6_250)
+                        dictionary = cv2.aruco.Dictionary_get(cv2.aruco.DICT_6X6_250)
 
                         # Initialize the detector parameters using default values
-                        parameters =  cv.aruco.DetectorParameters_create()
+                        parameters =  cv2.aruco.DetectorParameters_create()
 
                         # Load the camera matrix and distortion from file
                         cam_mat = np.load('cam_mat.pca.npy')
