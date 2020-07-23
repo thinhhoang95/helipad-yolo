@@ -190,7 +190,9 @@ def detect(save_img=False):
                         # pose_sol = res_1.x
                         # Write this information on the image
                         xi = np.array([(res.x[0] + res.x[2]) / 2.0, (res.x[1] + res.x[3]) / 2.0, res.x[4]])
-                        cv2.aruco.drawAxis(im1, cam_mat, dist, Ric, -Ric @ xi.T, 0.05)
+                        imwrite_row = imwrite_row + 1
+                        cv2.putText(im1, 'AI: ' + str(xi), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        cv2.aruco.drawAxis(im1, cam_mat, dist, Ric, -Ric @ xi.T, 0.05) # Helipad by AI information
                         imwrite_row = imwrite_row + 1
                         cv2.putText(im1, 'Sol 1: ' + str(res.x), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
                         imwrite_row = imwrite_row + 1
@@ -222,7 +224,8 @@ def detect(save_img=False):
                                 print('Ric from ArucoTag: ', Rotation.from_dcm(Ric2).as_euler('ZYX', degrees=True))
                                 heli_pos = Riti @ np.array([0.245,0,0]).T - Ric.T @ tvec.T # position with respect to the helipad
                                 print('ARUCO detected at ', heli_pos)
-                                cv2.aruco.drawAxis(im1, cam_mat, dist, Ric2, - Ric2 @ heli_pos, 0.05)
+                                cv2.aruco.drawAxis(im1, cam_mat, dist, Ric2, - Ric2 @ heli_pos, 0.05) # Position of helipad by ARUCO information
+                                cv2.aruco.drawAxis(im1, cam_mat, dist, Ritc, tvec, 0.05) # ARUCO tag
                                 imwrite_row = imwrite_row + 1
                                 cv2.putText(im1, 'ARUCO: ' + str(heli_pos), (5, imwrite_row*10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
 
