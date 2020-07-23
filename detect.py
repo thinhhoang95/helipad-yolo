@@ -183,8 +183,8 @@ def detect(save_img=False):
                         Ric = Rbc @ Rib
                         print('Ric from IMU: ', Rotation.from_dcm(Ric).as_euler('ZYX', degrees=True))
                         # Perform optimization
-                        res = least_squares(bprj, pose_sol_a, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.181))
-                        res_2 = least_squares(bprj, pose_sol_b, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.181))
+                        res = least_squares(bprj, pose_sol_a, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.362))
+                        # res_2 = least_squares(bprj, pose_sol_b, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.362))
                         # pose_sol = res_1.x
                         # Write this information on the image
                         xi = np.array([(res.x[0] + res.x[2]) / 2.0, (res.x[1] + res.x[3]) / 2.0, res.x[4]])
@@ -193,8 +193,8 @@ def detect(save_img=False):
                         cv2.aruco.drawAxis(im1, cam_mat, dist, Ric, -Ric @ xi.T, 0.05) # Helipad by AI information
                         imwrite_row = imwrite_row + 1
                         cv2.putText(im1, 'Sol 1: ' + str(res.x), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
-                        imwrite_row = imwrite_row + 1
-                        cv2.putText(im1, 'Sol 2: ' + str(res_2.x), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        #imwrite_row = imwrite_row + 1
+                        #cv2.putText(im1, 'Sol 2: ' + str(res_2.x), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
                         imwrite_row = imwrite_row + 1
                         cv2.putText(im1, 'YPR: ' + str(ypr/np.pi*180), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
                         imwrite_row = imwrite_row + 1
