@@ -192,7 +192,7 @@ def detect(save_img=False):
                         xi = np.array([(res.x[0] + res.x[2]) / 2.0, (res.x[1] + res.x[3]) / 2.0, res.x[4]])
                         cv2.aruco.drawAxis(im1, cam_mat, dist, Ric, -Ric @ xi.T, 0.05)
                         imwrite_row = imwrite_row + 1
-                        cv2.putText(im1, 'Sol 1: ' + str(res_1.x), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        cv2.putText(im1, 'Sol 1: ' + str(res.x), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
                         imwrite_row = imwrite_row + 1
                         cv2.putText(im1, 'Sol 2: ' + str(res_2.x), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
                         imwrite_row = imwrite_row + 1
@@ -227,9 +227,6 @@ def detect(save_img=False):
                                 cv2.putText(im1, 'ARUCO: ' + str(heli_pos), (5, imwrite_row*10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
 
                         # <<< Infer data from ARUCO tag <<<
-
-                        print('\n >> ', res_1.x)
-                        print('\n >> ', res_2.x)
 
             # Print time (inference + NMS)
             print('%sDone. (%.3fs)' % (s, t2 - t1))
