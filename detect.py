@@ -23,23 +23,37 @@ def bprj(x, Ric, xb1, yb1, xb2, yb2, mfoc, R):
         ((a2 - a3*yb1/mfoc)*x[0] + (b2 - b3*yb1/mfoc)*x[1] + (c2 -c3*yb1/mfoc)*x[4]),
         ((a1 - a3*xb2/mfoc)*x[2] + (b1 - b3*xb2/mfoc)*x[3] + (c1 -c3*xb2/mfoc)*x[4]),
         ((a2 - a3*yb2/mfoc)*x[2] + (b2 - b3*yb2/mfoc)*x[3] + (c2 -c3*yb2/mfoc)*x[4]),
-        10*((x[2]-x[0])**2 + (x[3]-x[1])**2 - R**2),
-        10*((x[2]-x[0])**2 / (x[3]-x[1])**2 - 1)
+        2*((x[2]-x[0])**2 + (x[3]-x[1])**2 - R**2),
+        2*((x[2]-x[0])**2 / (x[3]-x[1])**2 - 1),
     ])
+    
+def draw_axis(img, R, t, K):
+    # unit is mm
+    rotV, _ = cv2.Rodrigues(R)
+    points = np.float32([[0.2, 0, 0], [0, 0.2, 0], [0, 0, 0.2], [0, 0, 0]]).reshape(-1, 3)
+    axisPoints, _ = cv2.projectPoints(points, rotV, t, K, (0, 0, 0, 0))
+    img = cv2.line(img, tuple(axisPoints[3].ravel()), tuple(axisPoints[0].ravel()), (255,0,0), 3)
+    img = cv2.line(img, tuple(axisPoints[3].ravel()), tuple(axisPoints[1].ravel()), (0,255,0), 3)
+    img = cv2.line(img, tuple(axisPoints[3].ravel()), tuple(axisPoints[2].ravel()), (0,0,255), 3)
+    return img
 
 def detect(save_img=False):
+    
+    # Load the camera matrix and distortion from file
+    cam_mat = np.load('cam_mat.pca.npy')
+    dist = np.load('dist.pca.npy')
     imgsz = (320, 192) if ONNX_EXPORT else opt.img_size  # (320, 192) or (416, 256) or (608, 352) for (height, width)
     out, source, weights, half, view_img, save_txt = opt.output, opt.source, opt.weights, opt.half, opt.view_img, opt.save_txt
     webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
     # Declaration of common variables -------------------------
-    eulang_file = np.genfromtxt('test/images/eulang.txt', delimiter=',')
+    eulang_file = np.genfromtxt('data/samples/eulang.txt', delimiter=',')
     eulang_cursor = 0
     foc = 3.04e-3
-    Rbc = Rotation.from_euler('ZYX', np.array([90,0,0]), degrees=False).as_dcm()
+    Rbc = Rotation.from_euler('ZYX', np.array([-90,0,0]), degrees=True).as_dcm()
     pose_sol_a = np.array([0.1,0.1,0.4,0.4,2.5]) # initial solution for optimization
     pose_sol_b = np.array([-0.1,0.1,-0.4,0.4,-2.5]) # initial solution for optimization
     Ritip = np.array([[1,0,0],[0,-1,0],[0,0,-1]]) # rotates around X axis for 180 degrees
-    Ripi = Rotation.from_euler('ZYX',np.array([-69,0,0]), degrees=True).as_dcm()
+    Ripi = Rotation.from_euler('ZYX',np.array([150,0,0]), degrees=True).as_dcm()
     # ----------------------------------------------------------
     # Initialize
     device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
@@ -135,7 +149,7 @@ def detect(save_img=False):
             if webcam:  # batch_size >= 1
                 p, s, im0 = path[i], '%g: ' % i, im0s[i].copy()
             else:
-                p, s, im0 = path, '', im0s
+                p, s, im0, im1= path, '', im0s, im0s.copy()
 
             save_path = str(Path(out) / Path(p).name)
             s += '%gx%g ' % img.shape[2:]  # print string
@@ -150,6 +164,7 @@ def detect(save_img=False):
                     s += '%g %ss, ' % (n, names[int(c)])  # add to string
 
                 # Write results
+                imwrite_row = 0
                 for *xyxy, conf, cls in det:
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
@@ -158,7 +173,7 @@ def detect(save_img=False):
 
                     if save_img or view_img:  # Add bbox to image
                         label = '%s %.2f' % (names[int(cls)], conf)
-                        plot_one_box(xyxy, im0, label=label, color=colors[int(cls)])
+                        plot_one_box(xyxy, im1, label=label, color=colors[int(cls)])
                         # Further processing of detection results
                         # Get the timestamp
                         img_timestamp = float(path.split('_',1)[1][:-4])
@@ -168,15 +183,22 @@ def detect(save_img=False):
                         ypr = eulang_file[eulang_cursor, 1:4]
                         Rib = Rotation.from_euler('ZYX', ypr, degrees=False).as_dcm().T
                         Ric = Rbc @ Rib
+                        print('Ric from IMU: ', Rotation.from_dcm(Ric).as_euler('ZYX', degrees=True))
                         # Perform optimization
-                        res_1 = least_squares(bprj, pose_sol_a, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.181))
+                        res = least_squares(bprj, pose_sol_a, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.181))
                         res_2 = least_squares(bprj, pose_sol_b, args=(Ric, float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3]), foc, 0.181))
                         # pose_sol = res_1.x
                         # Write this information on the image
-                        cv2.putText(im0, 'Sol 1: ' + str(res_1.x), (5, 30), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
-                        cv2.putText(im0, 'Sol 2: ' + str(res_2.x), (5, 40), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
-                        cv2.putText(im0, 'YPR: ' + str(ypr/np.pi*180), (5, 50), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
-                        cv2.putText(im0, 'Box: %d %d %d %d' % (float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3])), (5, 60), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        xi = np.array([(res.x[0] + res.x[2]) / 2.0, (res.x[1] + res.x[3]) / 2.0, res.x[4]])
+                        cv2.aruco.drawAxis(im1, cam_mat, dist, Ric, -Ric @ xi.T, 0.05)
+                        imwrite_row = imwrite_row + 1
+                        cv2.putText(im1, 'Sol 1: ' + str(res_1.x), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        imwrite_row = imwrite_row + 1
+                        cv2.putText(im1, 'Sol 2: ' + str(res_2.x), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        imwrite_row = imwrite_row + 1
+                        cv2.putText(im1, 'YPR: ' + str(ypr/np.pi*180), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                        imwrite_row = imwrite_row + 1
+                        cv2.putText(im1, 'Box: %d %d %d %d' % (float(xyxy[0]), float(xyxy[1]), float(xyxy[2]), float(xyxy[3])), (5, imwrite_row * 10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
                         # >>> Infer data from ARUCO tag >>>
                         
                         #Load the dictionary that was used to generate the markers.
@@ -185,22 +207,24 @@ def detect(save_img=False):
                         # Initialize the detector parameters using default values
                         parameters =  cv2.aruco.DetectorParameters_create()
 
-                        # Load the camera matrix and distortion from file
-                        cam_mat = np.load('cam_mat.pca.npy')
-                        dist = np.load('dist.pca.npy')
-
                         # Detect the markers in the image
-                        markerCorners, markerIds, rejectedCandidates = cv2.aruco.detectMarkers(frame, dictionary, parameters=parameters)
+                        markerCorners, markerIds, rejectedCandidates = cv2.aruco.detectMarkers(im0, dictionary, parameters=parameters)
                         rvecs, tvecs, *other = cv2.aruco.estimatePoseSingleMarkers(markerCorners, 0.18, cam_mat, dist)
-                        if (len(rvecs)==0 or len(rvecs)>1):
-                            print('Invalid number of ARUCO tags detected in the image')
+                        if rvecs is None:
+                            print('Invalid ARUCO tag detected in the image. Skipping this image.')
                         else:
                             for rvec, tvec in zip(rvecs, tvecs):
+                                rvec = rvec[0]
+                                tvec = tvec[0]
                                 Ritc = Rotation.from_rotvec(rvec).as_dcm()
                                 Riti = Ripi @ Ritip
-                                heli_pos = Riti @ (np.array([0.245,0,0]).T - Ritc @ tvec.T)
+                                Ric2 = Ritc @ Riti.T
+                                print('Ric from ArucoTag: ', Rotation.from_dcm(Ric2).as_euler('ZYX', degrees=True))
+                                heli_pos = Riti @ np.array([0.245,0,0]).T - Ric.T @ tvec.T # position with respect to the helipad
                                 print('ARUCO detected at ', heli_pos)
-                                cv2.putText(im0, 'ARUCO: ' + str(heli_pos), (5, 60), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                                cv2.aruco.drawAxis(im1, cam_mat, dist, Ric2, - Ric2 @ heli_pos, 0.05)
+                                imwrite_row = imwrite_row + 1
+                                cv2.putText(im1, 'ARUCO: ' + str(heli_pos), (5, imwrite_row*10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
 
                         # <<< Infer data from ARUCO tag <<<
 
@@ -219,7 +243,7 @@ def detect(save_img=False):
             # Save results (image with detections)
             if save_img:
                 if dataset.mode == 'images':
-                    cv2.imwrite(save_path, im0)
+                    cv2.imwrite(save_path, im1)
                 else:
                     if vid_path != save_path:  # new video
                         vid_path = save_path
@@ -245,7 +269,7 @@ if __name__ == '__main__':
     parser.add_argument('--cfg', type=str, default='cfg/yolov3-spp.cfg', help='*.cfg path')
     parser.add_argument('--names', type=str, default='data/coco.names', help='*.names path')
     parser.add_argument('--weights', type=str, default='weights/yolov3-spp-ultralytics.pt', help='weights path')
-    parser.add_argument('--source', type=str, default='test/images', help='source')  # input file/folder, 0 for webcam
+    parser.add_argument('--source', type=str, default='data/samples/', help='source')  # input file/folder, 0 for webcam
     parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
     parser.add_argument('--img-size', type=int, default=512, help='inference size (pixels)')
     parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
