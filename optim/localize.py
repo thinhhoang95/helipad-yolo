@@ -27,8 +27,8 @@ def bprj(x, mRic, xb1, yb1, xb2, yb2, mfoc, R):
         ((a2 - a3*yb1/mfoc)*x[0] + (b2 - b3*yb1/mfoc)*x[1] + (c2 -c3*yb1/mfoc)*x[4]),
         ((a1 - a3*xb2/mfoc)*x[2] + (b1 - b3*xb2/mfoc)*x[3] + (c1 -c3*xb2/mfoc)*x[4]),
         ((a2 - a3*yb2/mfoc)*x[2] + (b2 - b3*yb2/mfoc)*x[3] + (c2 -c3*yb2/mfoc)*x[4]),
-        2*((x[2]-x[0])**2 + (x[3]-x[1])**2 - R**2),
-        2*((x[2]-x[0])**2 / (x[3]-x[1])**2 - 1),
+        10*((x[2]-x[0])**2 + (x[3]-x[1])**2 - R**2),
+        # 10*((x[2]-x[0])**2 / (x[3]-x[1])**2 - 1),
         # x[4] - 1.1418
     ])
 
@@ -44,25 +44,25 @@ def draw_axis(img, R, t, K):
 
 if __name__ == '__main__':
     Rbc = Rotation.from_euler('ZYX', np.array([-90,0,0]), degrees=True).as_dcm()
-    Rib = Rotation.from_euler('ZYX', np.array([89.535, 26.004, -4.9973]), degrees=True).as_dcm().T
+    Rib = Rotation.from_euler('ZYX', np.array([43.0, 6.91, 4.79]), degrees=True).as_dcm().T
     # print(Rib)
     Ric = Rbc @ Rib # multiply with vector in I->B->C 
     # Ric = Rotation.from_euler('ZYX', np.array([40.13, -7.34, 25.05]), degrees=True).as_matrix().T
     # Ric = np.eye(3)
-    pose_sol = np.array([0,0,1.5,1.5,2.5])
+    pose_sol = np.array([0.1,-0.2,0.5,0.25,-1.3])
     foc = 3.04e-3
     
     # Estimation of AI
     #print('Preoptimization cost')
     #print(bprj(pose_sol, Ric, 191.0, 152.0, 277.0, 217.0, foc, 0.22))
-    res = least_squares(bprj, pose_sol, args=(Ric, 191.0, 152.0, 277.0, 217.0, foc, 0.22))
+    res = least_squares(bprj, pose_sol, args=(Ric, 297.0, 58.0, 431.0, 142.0, foc, 0.362))
     print('Result: ', res.x)
     #print('Post optimization cost')
     #print(bprj(res.x, Ric, 191.0, 152.0, 277.0, 217.0, foc, 0.22))
     print('Post optimization residual ', res.cost)
 
     # Redraw the result on the image
-    im0 = cv2.imread('test.jpg')
+    im0 = cv2.imread('image0001_1595396175.393161.jpg')
     im1 = im0.copy()
     print('Ric from IMU: ', Rotation.from_dcm(Ric).as_euler('ZYX', degrees=True))
     Ritip = np.array([[1,0,0],[0,-1,0],[0,0,-1]]) # rotates around X axis for 180 degrees

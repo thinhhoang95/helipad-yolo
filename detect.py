@@ -23,8 +23,7 @@ def bprj(x, Ric, xb1, yb1, xb2, yb2, mfoc, R):
         ((a2 - a3*yb1/mfoc)*x[0] + (b2 - b3*yb1/mfoc)*x[1] + (c2 -c3*yb1/mfoc)*x[4]),
         ((a1 - a3*xb2/mfoc)*x[2] + (b1 - b3*xb2/mfoc)*x[3] + (c1 -c3*xb2/mfoc)*x[4]),
         ((a2 - a3*yb2/mfoc)*x[2] + (b2 - b3*yb2/mfoc)*x[3] + (c2 -c3*yb2/mfoc)*x[4]),
-        2*((x[2]-x[0])**2 + (x[3]-x[1])**2 - R**2),
-        2*((x[2]-x[0])**2 / (x[3]-x[1])**2 - 1),
+        10*((x[2]-x[0])**2 + (x[3]-x[1])**2 - R**2),
     ])
     
 def draw_axis(img, R, t, K):
@@ -50,8 +49,7 @@ def detect(save_img=False):
     eulang_cursor = 0
     foc = 3.04e-3
     Rbc = Rotation.from_euler('ZYX', np.array([-90,0,0]), degrees=True).as_dcm()
-    pose_sol_a = np.array([0.1,0.1,0.4,0.4,2.5]) # initial solution for optimization
-    pose_sol_b = np.array([-0.1,0.1,-0.4,0.4,-2.5]) # initial solution for optimization
+    pose_sol_a = np.array([0.1,0.1,0.4,0.4,-1.5]) # initial solution for optimization
     Ritip = np.array([[1,0,0],[0,-1,0],[0,0,-1]]) # rotates around X axis for 180 degrees
     Ripi = Rotation.from_euler('ZYX',np.array([150,0,0]), degrees=True).as_dcm()
     # ----------------------------------------------------------
