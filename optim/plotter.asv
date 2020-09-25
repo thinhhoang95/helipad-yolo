@@ -31,7 +31,7 @@ subplot(6,1,5)
 plot(nearest(:,1), nearest(:,4), 'k');
 % hold on
 subplot(6,1,6)
-plot(nearest(:,1), nearest(:,7), 'k');
+% plot(nearest(:,1), nearest(:,7), 'k--');
 hold off
 legend('x/AI','x/TAG','y/AI','y/TAG','z/AI','z/TAG');
 xlabel('Time sample');

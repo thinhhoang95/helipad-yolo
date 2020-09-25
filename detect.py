@@ -226,7 +226,7 @@ def detect(save_img=False):
                                 Riti = Ripi @ Ritip
                                 Ric2 = Ritc @ Riti.T
                                 print('Ric from ArucoTag: ', Rotation.from_dcm(Ric2).as_euler('ZYX', degrees=True))
-                                heli_pos = Riti @ np.array([0.245,0,0]).T - Ric2.T @ tvec.T # position with respect to the helipad
+                                heli_pos = Riti @ np.array([0.35,0,0]).T - Ric2.T @ tvec.T # position with respect to the helipad
                                 print('ARUCO detected at ', heli_pos)
                                 cv2.aruco.drawAxis(im1, cam_mat, dist, Ric2, - Ric2 @ heli_pos, 0.05) # Position of helipad by ARUCO information
                                 cv2.aruco.drawAxis(im1, cam_mat, dist, Ritc, tvec, 0.05) # ARUCO tag
