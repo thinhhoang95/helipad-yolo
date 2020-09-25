@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 from scipy.spatial.transform import Rotation
 from scipy.optimize import least_squares
+import scipy.io as sio
 
 from models import *  # set ONNX_EXPORT in models.py
 from utils.datasets import *
@@ -38,6 +39,10 @@ def draw_axis(img, R, t, K):
 
 def detect(save_img=False):
     
+    detection_result = np.empty([0,7])
+    ypr_result = np.empty([0,4])
+    image_id = 0
+
     # Load the camera matrix and distortion from file
     cam_mat = np.load('cam_mat.pca.npy')
     dist = np.load('dist.pca.npy')
@@ -119,6 +124,7 @@ def detect(save_img=False):
     img = torch.zeros((1, 3, imgsz, imgsz), device=device)  # init img
     _ = model(img.half() if half else img.float()) if device.type != 'cpu' else None  # run once
     for path, img, im0s, vid_cap in dataset:
+        image_id = image_id + 1
         img = torch.from_numpy(img).to(device)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -220,12 +226,16 @@ def detect(save_img=False):
                                 Riti = Ripi @ Ritip
                                 Ric2 = Ritc @ Riti.T
                                 print('Ric from ArucoTag: ', Rotation.from_dcm(Ric2).as_euler('ZYX', degrees=True))
-                                heli_pos = Riti @ np.array([0.245,0,0]).T - Ric.T @ tvec.T # position with respect to the helipad
+                                heli_pos = Riti @ np.array([0.245,0,0]).T - Ric2.T @ tvec.T # position with respect to the helipad
                                 print('ARUCO detected at ', heli_pos)
                                 cv2.aruco.drawAxis(im1, cam_mat, dist, Ric2, - Ric2 @ heli_pos, 0.05) # Position of helipad by ARUCO information
                                 cv2.aruco.drawAxis(im1, cam_mat, dist, Ritc, tvec, 0.05) # ARUCO tag
                                 imwrite_row = imwrite_row + 1
                                 cv2.putText(im1, 'ARUCO: ' + str(heli_pos), (5, imwrite_row*10), 0, 0.3, [225, 255, 255], thickness=1, lineType=cv2.LINE_AA)
+                                # Write data to log file
+
+                                detection_result = np.concatenate((detection_result, [np.concatenate(([image_id], xi, heli_pos))]), axis=0)
+                                ypr_result = np.concatenate((ypr_result, [np.concatenate(([image_id], ypr / np.pi * 180))]), axis=0)
 
                         # <<< Infer data from ARUCO tag <<<
 
@@ -259,8 +269,9 @@ def detect(save_img=False):
         if platform == 'darwin':  # MacOS
             os.system('open ' + save_path)
 
+    sio.savemat('detectresult.mat', {'detect': detection_result, 'ypr': ypr_result})
+    print('MATLAB Array has been saved to disk as detectresult.mat')
     print('Done. (%.3fs)' % (time.time() - t0))
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
